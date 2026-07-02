@@ -2,15 +2,26 @@ from __future__ import annotations
 
 import argparse
 
-from .agents import RandomAgent, RuleBasedAgent
+from .agents import (
+    AggressiveRuleBasedAgent,
+    BalancedRuleBasedAgent,
+    DefensiveRuleBasedAgent,
+    RandomAgent,
+)
+from .agent_factory import build_team
 from .core.engine import GameEngine
 from .core.map_templates import MAPS, get_map
 from .gui import SimulationConfig, SimulationWindow
 
 AGENT_FACTORIES = {
     "random": lambda: RandomAgent(),
-    "rule": lambda: RuleBasedAgent(),
+    "balanced": lambda: BalancedRuleBasedAgent(),
+    "aggressive": lambda: AggressiveRuleBasedAgent(),
+    "defensive": lambda: DefensiveRuleBasedAgent(),
+    "rule": lambda: BalancedRuleBasedAgent(),
 }
+
+STRATEGY_CHOICES = ["balanced", "aggressive", "defensive", "trained"]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,15 +35,37 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--turns", type=int, default=50, help="Maximum number of turns")
     parser.add_argument(
         "--team0",
-        default="rule",
-        choices=sorted(AGENT_FACTORIES),
+        default="balanced",
+        choices=STRATEGY_CHOICES,
         help="Controller for team 0",
     )
     parser.add_argument(
+        "--team0-support",
+        default=None,
+        choices=STRATEGY_CHOICES,
+        help="Second agent on team 0",
+    )
+    parser.add_argument(
+        "--team0-policy",
+        default=None,
+        help="Path to a saved Q-table for a trained team 0 agent",
+    )
+    parser.add_argument(
         "--team1",
-        default="random",
-        choices=sorted(AGENT_FACTORIES),
+        default="defensive",
+        choices=STRATEGY_CHOICES,
         help="Controller for team 1",
+    )
+    parser.add_argument(
+        "--team1-support",
+        default=None,
+        choices=STRATEGY_CHOICES,
+        help="Second agent on team 1",
+    )
+    parser.add_argument(
+        "--team1-policy",
+        default=None,
+        help="Path to a saved Q-table for a trained team 1 agent",
     )
     parser.add_argument(
         "--gui",
@@ -59,7 +92,11 @@ def main() -> None:
             SimulationConfig(
                 map_template=map_template,
                 team0_agent=args.team0,
+                team0_support_agent=args.team0_support,
+                team0_policy_path=args.team0_policy,
                 team1_agent=args.team1,
+                team1_support_agent=args.team1_support,
+                team1_policy_path=args.team1_policy,
                 max_turns=args.turns,
                 step_delay_ms=args.delay_ms,
             )
@@ -69,8 +106,16 @@ def main() -> None:
 
     engine = GameEngine(map_template)
     engine.config.max_turns = args.turns
-    team0 = [AGENT_FACTORIES[args.team0](), AGENT_FACTORIES[args.team0]()]
-    team1 = [AGENT_FACTORIES[args.team1](), AGENT_FACTORIES[args.team1]()]
+    team0 = build_team(
+        args.team0,
+        args.team0_support,
+        primary_policy_path=args.team0_policy,
+    )
+    team1 = build_team(
+        args.team1,
+        args.team1_support,
+        primary_policy_path=args.team1_policy,
+    )
 
     print(f"Loaded map: {args.map}")
     print(engine.render_ascii())

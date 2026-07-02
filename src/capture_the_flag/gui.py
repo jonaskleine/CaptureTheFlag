@@ -12,22 +12,37 @@ except (
 else:
     _TK_IMPORT_ERROR = None
 
-from .agents import RandomAgent, RuleBasedAgent
+from .agents import (
+    AggressiveRuleBasedAgent,
+    BalancedRuleBasedAgent,
+    DefensiveRuleBasedAgent,
+    RandomAgent,
+)
+from .agent_factory import build_team
 from .core.engine import GameEngine
 from .core.map_templates import MapTemplate
 from .core.models import Position
 
 AGENT_FACTORIES = {
     "random": lambda: RandomAgent(),
-    "rule": lambda: RuleBasedAgent(),
+    "balanced": lambda: BalancedRuleBasedAgent(),
+    "aggressive": lambda: AggressiveRuleBasedAgent(),
+    "defensive": lambda: DefensiveRuleBasedAgent(),
+    "rule": lambda: BalancedRuleBasedAgent(),
 }
+
+STRATEGY_CHOICES = ["balanced", "aggressive", "defensive"]
 
 
 @dataclass(slots=True)
 class SimulationConfig:
     map_template: MapTemplate
-    team0_agent: str = "rule"
-    team1_agent: str = "random"
+    team0_agent: str = "balanced"
+    team0_support_agent: str | None = None
+    team0_policy_path: str | None = None
+    team1_agent: str = "defensive"
+    team1_support_agent: str | None = None
+    team1_policy_path: str | None = None
     max_turns: int = 50
     step_delay_ms: int = 450
 
@@ -40,14 +55,16 @@ class SimulationWindow:
         self.config = config
         self.engine = GameEngine(config.map_template)
         self.engine.config.max_turns = config.max_turns
-        self.team0 = [
-            AGENT_FACTORIES[config.team0_agent](),
-            AGENT_FACTORIES[config.team0_agent](),
-        ]
-        self.team1 = [
-            AGENT_FACTORIES[config.team1_agent](),
-            AGENT_FACTORIES[config.team1_agent](),
-        ]
+        self.team0 = build_team(
+            config.team0_agent,
+            config.team0_support_agent,
+            primary_policy_path=config.team0_policy_path,
+        )
+        self.team1 = build_team(
+            config.team1_agent,
+            config.team1_support_agent,
+            primary_policy_path=config.team1_policy_path,
+        )
         self.cell_size = 56
         self.margin = 24
         self.side_panel_width = 280
