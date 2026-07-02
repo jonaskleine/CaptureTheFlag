@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from ..core.engine import Agent
-from ..core.models import Action, GameState
+from ..core.models import Action, GameState, Position
 
 
 class BaseAgent(ABC):
@@ -15,6 +15,11 @@ class BaseAgent(ABC):
     @abstractmethod
     def choose_action(self, state: GameState, team_id: int, agent_id: str) -> Action:
         raise NotImplementedError
+
+    def choose_target(
+        self, state: GameState, team_id: int, agent_id: str
+    ) -> Position | None:
+        return None
 
 
 class AgentAdapter(BaseAgent, Agent):

@@ -41,8 +41,10 @@ class AgentState:
     team_id: int
     spawn: Position
     position: Position
+    previous_position: Position | None = None
     carrying_flag_team: int | None = None
     captured: bool = False
+    broadcast_target: Position | None = None
 
 
 @dataclass(slots=True)
@@ -60,8 +62,15 @@ class MapTemplate:
     width: int
     height: int
     walls: frozenset[Position]
+    walkable_tiles: frozenset[Position]
     team_spawns: tuple[tuple[Position, ...], tuple[Position, ...]]
     team_flags: tuple[Position, Position]
+    next_step_matrix: dict[Position, dict[Position, Position]] = field(
+        default_factory=dict
+    )
+    next_step_choices: dict[Position, dict[Position, tuple[Position, ...]]] = field(
+        default_factory=dict
+    )
 
     @classmethod
     def from_ascii(
@@ -107,11 +116,30 @@ class MapTemplate:
     def home_side(self, team_id: int) -> str:
         return "right" if team_id == 0 else "left"
 
+    def shortest_step(self, start: Position, target: Position) -> Position | None:
+        choices = self.shortest_step_choices(start, target)
+        return choices[0] if choices else None
+
+    def shortest_step_choices(
+        self, start: Position, target: Position
+    ) -> tuple[Position, ...]:
+        cached_choices = self.next_step_choices.get(start)
+        if cached_choices is not None and target in cached_choices:
+            return cached_choices[target]
+
+        from .map_templates import _a_star_shortest_steps
+
+        choices = _a_star_shortest_steps(self, start, target)
+        self.next_step_choices.setdefault(start, {})[target] = choices
+        if choices:
+            self.next_step_matrix.setdefault(start, {})[target] = choices[0]
+        return choices
+
 
 @dataclass(slots=True)
 class GameConfig:
     max_turns: int = 200
-    score_to_win: int = 1
+    score_to_win: int = 0
 
 
 @dataclass(slots=True)
